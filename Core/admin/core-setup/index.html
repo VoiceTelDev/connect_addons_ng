@@ -394,7 +394,7 @@ Configuration &gt; Settings</strong>.</p>
 </tr>
 <tr>
 <td><strong>Register Summary</strong></td>
-<td>Automatically post call summaries to the partner's chatter.</td>
+<td>Post call summaries to the chatter of the record the call was started from, the call's contact, and records linked by installed bridge modules (lead, ticket, order...).</td>
 </tr>
 <tr>
 <td><strong>Summary Prompt</strong></td>
@@ -412,7 +412,9 @@ Configuration &gt; Settings</strong>.</p>
 <li>The transcript is sent to the selected summary model with the summary prompt</li>
 <li>The transcript and summary are saved permanently on the call record</li>
 <li>If <strong>Delete Recording After Transcription</strong> is enabled, the successfully processed Odoo recording is deleted</li>
-<li>If enabled, the summary is posted to the partner's chatter</li>
+<li>If enabled, the summary is posted to the same chatters as the call log
+   (see <em>Calls → Where calls are logged</em>). Very short transcripts
+   (under eight words) are not summarized.</li>
 </ol>
 <p>The scheduled action must be active for automatic processing. Sanitized
 development or staging databases may have scheduled actions disabled. A

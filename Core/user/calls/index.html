@@ -504,6 +504,20 @@ new destination after confirmation.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="where-calls-are-logged">Where Calls Are Logged</h3>
+<p>When a call ends, a line with its status, duration and participants is posted
+to the chatter of:</p>
+<ul>
+<li>the record you clicked the number on (a lead, sales order, ticket, partner or
+  any other record with a chatter), shown as <strong>Called From</strong> on the call;</li>
+<li>that record's contact, if it has one;</li>
+<li>the call's contact (matched by number);</li>
+<li>records linked by installed bridge modules, such as the lead found by
+  <code>connect_crm</code>.</li>
+</ul>
+<p>Each record gets the line once, even when it appears in several of these
+roles. With <strong>Register Summary</strong> enabled, the AI summary follows the same
+path. Calls too short to summarize get no summary.</p>
 <h3 id="partner-linking">Partner Linking</h3>
 <p>If a call's number matches a contact in Odoo, the partner is automatically linked. If not, use the <strong>Create Partner</strong> button on the call record to create a new contact from the call.</p>
 <h2 id="active-calls">Active Calls</h2>
@@ -623,6 +637,10 @@ Use the search filters to toggle the layers or focus on one schedule.</p>
           <a class="docs-toc__link" href="#call-history">Call History</a>
           
             <ul class="docs-toc__list docs-toc__list--nested">
+              
+                <li>
+                  <a class="docs-toc__link" href="#where-calls-are-logged">Where Calls Are Logged</a>
+                </li>
               
                 <li>
                   <a class="docs-toc__link" href="#partner-linking">Partner Linking</a>
