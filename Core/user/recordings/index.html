@@ -339,12 +339,13 @@
 <p>If call recording is enabled for your account, calls are automatically recorded. Recordings appear:</p>
 <ul>
 <li><strong>On the call record</strong> — Inline audio player in the call form</li>
+<li><strong>On the recording record</strong> — Audio player on the <strong>Details</strong> tab</li>
 <li><strong>In the recordings list</strong> — Navigate to <strong>Connect &gt; Calls &gt; Recordings</strong></li>
 </ul>
 <h3 id="playback">Playback</h3>
 <p>Click the play button on any recording to listen in your browser. You can also download recordings for offline access.</p>
-<p>Caller and called numbers use the standard phone control on an individual
-recording form, so a dialable number can be used for click-to-call there. The
+<p>Caller and called numbers use the standard phone control on the <strong>Info</strong> tab of
+an individual recording form, so a dialable number can be used for click-to-call there. The
 recording list shows those numbers as plain text.</p>
 <h3 id="recording-settings">Recording Settings</h3>
 <p>Recording can be enabled at multiple levels (configured by your administrator):</p>
@@ -387,27 +388,24 @@ recorded manually.</p>
    your administrator (GPT-5.4 mini by default) for a concise summary</li>
 </ol>
 <h3 id="viewing-transcripts">Viewing Transcripts</h3>
-<p>The linked call keeps the transcript and summary permanently. On a retained
-recording record, you'll also see:</p>
+<p>The linked call keeps the transcript and summary permanently. A retained
+recording record opens with the <strong>Summary</strong> at the top (shown once there is
+one) and two tabs below it:</p>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th>Tab</th>
+<th>Content</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Transcript</strong></td>
-<td>Full text of the conversation.</td>
+<td><strong>Info</strong></td>
+<td>The call, contact, caller and called users and numbers, start time, duration, status, and the transcription error if transcription failed.</td>
 </tr>
 <tr>
-<td><strong>Summary</strong></td>
-<td>AI-generated summary of the call.</td>
-</tr>
-<tr>
-<td><strong>Transcription Price</strong></td>
-<td>Estimated Whisper speech-to-text cost in USD, based on OpenAI's processed duration.</td>
+<td><strong>Details</strong></td>
+<td>The audio player, the full <strong>Transcript</strong>, and technical data: channel, SIDs, media URL, source, recording price, and <strong>Transcription Price</strong> (estimated Whisper speech-to-text cost in USD, based on OpenAI's processed duration).</td>
 </tr>
 </tbody>
 </table>
@@ -419,8 +417,11 @@ recordings automatically when audio must not be retained.</p>
 <p>You can manually trigger transcription by clicking the <strong>Transcribe</strong> button
 on a recording record. Once the manual attempt finishes, the recording is
 removed from the automatic queue so it is not sent to OpenAI twice.</p>
-<h3 id="partner-chatter-integration">Partner Chatter Integration</h3>
-<p>When <strong>Register Summary</strong> is enabled in settings, call summaries are automatically posted to the partner's chatter feed. This provides a timeline of all call interactions visible on the contact record.</p>
+<h3 id="chatter-integration">Chatter Integration</h3>
+<p>When <strong>Register Summary</strong> is enabled in settings, call summaries are posted to
+the chatters listed in <em>Calls → Where Calls Are Logged</em>: the record the call was
+made from, its contact, the call's contact, and records linked by bridge
+modules. This provides a timeline of call interactions on those records.</p>
 <h2 id="browsing-recordings">Browsing Recordings</h2>
 <p>Navigate to <strong>Connect &gt; Calls &gt; Recordings</strong> to see all recordings in a list view.</p>
 <p>The list shows retained recordings with their call, phone numbers, duration,
@@ -511,7 +512,7 @@ optional <strong>Partner</strong> and <strong>Users</strong> columns.</p>
                 </li>
               
                 <li>
-                  <a class="docs-toc__link" href="#partner-chatter-integration">Partner Chatter Integration</a>
+                  <a class="docs-toc__link" href="#chatter-integration">Chatter Integration</a>
                 </li>
               
             </ul>
