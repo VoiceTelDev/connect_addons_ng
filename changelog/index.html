@@ -108,6 +108,10 @@ version bumps, repository moves — is deliberately left out.</p>
 </ul>
 <h3 id="fixed">Fixed</h3>
 <ul>
+<li><strong>connect_telnyx</strong> — The web phone no longer fills the screen with "Phone
+  error: An error occurred on the WebSocket connection" notifications after a
+  laptop wakes from sleep. It reconnects quietly and shows one error only if it
+  really cannot get back, which closes once it is connected again.</li>
 <li><strong>connect</strong> — Very short calls no longer post a "transcript is too short to
   summarize" note as their summary.</li>
 <li><strong>connect_freeswitch, connect_twilio, connect_telnyx, connect_infobip</strong> —

@@ -547,6 +547,15 @@ applies the originating PBX user's <strong>Record Calls</strong> setting to the 
 TeXML <code>&lt;Dial&gt;</code>. Telnyx may identify that user in different webhook fields;
 Odoo normalizes those variants before selecting the caller ID and recording
 policy.</p>
+<h3 id="connection-interruptions">Connection interruptions</h3>
+<p>The web phone stays quiet while it can reconnect by itself. When the
+connection to Telnyx drops — a laptop wakes from sleep, Wi-Fi changes, the
+network is briefly offline — the Telnyx client reconnects automatically and
+no error is shown. If the client gives up, the phone rebuilds it once with a
+fresh login; only when that fails as well does a single red notification say
+that the phone could not reconnect. It disappears as soon as the phone is
+connected again, which it retries when the browser reports the network is
+back.</p>
 <h3 id="call-failure-notifications">Call-failure notifications</h3>
 <p>When an outbound web-phone call fails before it is answered, the Telnyx
 phone widget surfaces the reason as an Odoo notification instead of
@@ -685,6 +694,10 @@ configurable sender number. Incoming RCS messages arrive as
               
                 <li>
                   <a class="docs-toc__link" href="#webhooks">Webhooks</a>
+                </li>
+              
+                <li>
+                  <a class="docs-toc__link" href="#connection-interruptions">Connection interruptions</a>
                 </li>
               
                 <li>
