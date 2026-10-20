@@ -2,11 +2,14 @@
 
 import logging
 import re
+
+from voiceml.exceptions import ApiError
+
 from odoo import fields, models, api, release
 if release.version_info[0] >= 19:
     from odoo.models import Constraint
 from odoo.exceptions import ValidationError
-from twilio.twiml.voice_response import Dial, VoiceResponse
+from .voiceml_response import Dial, VoiceResponse
 from odoo.addons.connect.models.settings import debug
 from .settings import (
     format_connect_response, DEFAULT_VOICETEL_SIP_SUFFIX, VOICETEL_WSS_PORT)
@@ -17,12 +20,10 @@ logger = logging.getLogger(__name__)
 
 # VoiceML answers a SIP domain name already held by another tenant with
 # 409 / code 21631; the helper library surfaces both in the exception text.
-DOMAIN_TAKEN_MARKERS = ('already exists', '21631', 'HTTP 409', 'status 409')
-
-
 def _domain_taken(error):
-    text = str(error)
-    return any(marker in text for marker in DOMAIN_TAKEN_MARKERS)
+    # VoiceML answers a taken domain name with 409 / code 21631.
+    return isinstance(error, ApiError) and (
+        error.code == 21631 or error.status_code == 409)
 
 
 class Domain(models.Model):
@@ -113,12 +114,10 @@ class Domain(models.Model):
         # One credential list per domain, mapped for both REGISTER and
         # INVITE authentication.
         credential_list = client.sip.credential_lists.create(friendly_name=domain.sid)
-        client.sip.domains(domain.sid).auth.registrations.credential_list_mappings.create(
-            credential_list_sid=credential_list.sid
-        )
-        client.sip.domains(domain.sid).auth.calls.credential_list_mappings.create(
-            credential_list_sid=credential_list.sid
-        )
+        client.sip.domains.auth.registrations.credential_list_mappings(
+            domain.sid).create(credential_list_sid=credential_list.sid)
+        client.sip.domains.auth.calls.credential_list_mappings(
+            domain.sid).create(credential_list_sid=credential_list.sid)
         self.write(
             {
                 "sid": domain.sid,
@@ -147,9 +146,9 @@ class Domain(models.Model):
             try:
                 password = user.voicetel_password or self.env[
                     'connect.user'].generate_voicetel_password()
-                credential = client.sip.credential_lists(
+                credential = client.sip.credential_lists.credentials(
                     self.cred_list_sid
-                ).credentials.create(
+                ).create(
                     username=user.voicetel_username,
                     password=password
                 )
@@ -174,7 +173,7 @@ class Domain(models.Model):
         client = client or self.env["connect.settings"].get_voicetel_client()
         try:
             matching_domain = None
-            for domain in client.sip.domains.list():
+            for domain in client.sip.domains.iter():
                 if domain.domain_name == self.domain_name:
                     matching_domain = domain
                     break
@@ -184,12 +183,10 @@ class Domain(models.Model):
                     "account. Please choose a different label.".format(
                         self.domain_name)
                 )
-            register_mappings = client.sip.domains(
-                matching_domain.sid
-            ).auth.registrations.credential_list_mappings.list()
-            calls_mappings = client.sip.domains(
-                matching_domain.sid
-            ).auth.calls.credential_list_mappings.list()
+            register_mappings = client.sip.domains.auth.registrations \
+                .credential_list_mappings(matching_domain.sid).list().credential_list_mappings
+            calls_mappings = client.sip.domains.auth.calls \
+                .credential_list_mappings(matching_domain.sid).list().credential_list_mappings
             cred_list_sid = None
             if register_mappings:
                 # The mapping SID is the credential list SID.
@@ -201,11 +198,13 @@ class Domain(models.Model):
                     friendly_name=matching_domain.sid)
                 cred_list_sid = credential_list.sid
             if not register_mappings:
-                client.sip.domains(matching_domain.sid).auth.registrations \
-                    .credential_list_mappings.create(credential_list_sid=cred_list_sid)
+                client.sip.domains.auth.registrations \
+                    .credential_list_mappings(matching_domain.sid).create(
+                        credential_list_sid=cred_list_sid)
             if not calls_mappings:
-                client.sip.domains(matching_domain.sid).auth.calls \
-                    .credential_list_mappings.create(credential_list_sid=cred_list_sid)
+                client.sip.domains.auth.calls \
+                    .credential_list_mappings(matching_domain.sid).create(
+                        credential_list_sid=cred_list_sid)
             self.write({
                 'sid': matching_domain.sid,
                 'cred_list_sid': cred_list_sid,
@@ -231,7 +230,8 @@ class Domain(models.Model):
         """
         self.ensure_one()
         try:
-            credentials = client.sip.credential_lists(cred_list_sid).credentials.list()
+            credentials = client.sip.credential_lists.credentials(
+                cred_list_sid).iter()
             domain_users = self.env['connect.user'].sudo().search(
                 [('voicetel_domain', '=', self.id)])
             sip_enabled_users = domain_users.filtered(lambda u: u.voicetel_sip_enabled)
@@ -263,8 +263,8 @@ class Domain(models.Model):
                 try:
                     password = odoo_user.voicetel_password or self.env[
                         'connect.user'].generate_voicetel_password()
-                    credential = client.sip.credential_lists(
-                        cred_list_sid).credentials.create(
+                    credential = client.sip.credential_lists.credentials(
+                        cred_list_sid).create(
                             username=username, password=password)
                     odoo_user.with_context(skip_voicetel_sync=True).write({
                         'voicetel_sid': credential.sid,
@@ -310,14 +310,12 @@ class Domain(models.Model):
                 continue
             try:
                 if rec.cred_list_sid:
-                    client.sip.domains(rec.sid).auth.registrations.credential_list_mappings(
-                        rec.cred_list_sid
-                    ).delete()
-                    client.sip.domains(rec.sid).auth.calls.credential_list_mappings(
-                        rec.cred_list_sid
-                    ).delete()
-                    client.sip.credential_lists(rec.cred_list_sid).delete()
-                client.sip.domains(rec.sid).delete()
+                    client.sip.domains.auth.registrations.credential_list_mappings(
+                        rec.sid).delete(rec.cred_list_sid)
+                    client.sip.domains.auth.calls.credential_list_mappings(
+                        rec.sid).delete(rec.cred_list_sid)
+                    client.sip.credential_lists.delete(rec.cred_list_sid)
+                client.sip.domains.delete(rec.sid)
                 debug(self, "Domain removed.")
             except Exception as e:
                 if "not found" in str(e):
@@ -329,9 +327,9 @@ class Domain(models.Model):
     def update_voicetel_domain(self, client):
         self.ensure_one()
         try:
-            client.sip.domains(self.sid).update(
+            client.sip.domains.update(
+                self.sid,
                 friendly_name=self.friendly_name,
-                domain_name=self.domain_name,
                 voice_url=self.application.voice_url,
                 voice_fallback_url=self.application.voice_fallback_url,
                 voice_status_callback_url=self.application.voice_status_url,
@@ -377,7 +375,7 @@ class Domain(models.Model):
         3. Update what exists in both
         """
         client = self.env["connect.settings"].get_voicetel_client()
-        voicetel_sids = set([k.sid for k in client.sip.domains.list()])
+        voicetel_sids = set([k.sid for k in client.sip.domains.iter()])
         odoo_records = self.search([])
         odoo_sids = {sid for sid in odoo_records.mapped("sid") if sid}
         only_in_odoo = odoo_sids - voicetel_sids

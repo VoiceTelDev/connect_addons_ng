@@ -29,8 +29,8 @@ Connect providers.
 ## Prerequisites
 
 - A running Odoo instance with the core `connect` module installed.
-- The `twilio` Python helper library available in the Odoo environment
-  (`external_dependencies.python = ['twilio']`). It is the documented client
+- The `voiceml` Python SDK available in the Odoo environment
+  (`external_dependencies.python = ['voiceml']`). It is the documented client
   for VoiceML's API; no request ever leaves for Twilio.
 - A VoiceML account: sign up at <https://voicetel.com/signup/>, complete
   KYC, then request the VoiceML account from

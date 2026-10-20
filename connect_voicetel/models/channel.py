@@ -8,10 +8,13 @@ from markupsafe import escape
 from odoo import models, api, release
 from odoo.exceptions import UserError
 
-from twilio.twiml.voice_response import VoiceResponse
+from .voiceml_response import VoiceResponse
 
 from odoo.addons.connect.models.channel import CALL_END_STATUSES
 from odoo.addons.connect.models.settings import debug
+from voiceml.models import (
+    StartRecordingRequest, UpdateCallRequest, UpdateRecordingRequest)
+
 from .settings import MAX_EXTEN_LEN
 
 logger = logging.getLogger(__name__)
@@ -117,8 +120,8 @@ class Channel(models.Model):
                 # "Start Recording" for the whole call.
                 recordings = [
                     recording
-                    for recording in client.calls(call_sid).recordings.list(
-                        limit=20)
+                    for recording in client.calls.list_recordings(
+                        call_sid, page_size=20).recordings
                     if getattr(recording, 'status', '')
                     in VOICETEL_LIVE_RECORDING_STATUSES
                 ]
@@ -155,12 +158,12 @@ class Channel(models.Model):
             callback_url = settings.voicetel_webhook_url(
                 'voicetel/webhook/recordingstatus')
             kwargs = {
-                'recording_channels': 'dual',
+                'RecordingChannels': 'dual',
             }
             if api_url:
                 kwargs.update({
-                    'recording_status_callback': callback_url,
-                    'recording_status_callback_event': ['completed'],
+                    'RecordingStatusCallback': callback_url,
+                    'RecordingStatusCallbackEvent': ['completed'],
                 })
             recording = settings.get_voicetel_client().calls(
                 channel.sid).recordings.create(**kwargs)
@@ -193,9 +196,8 @@ class Channel(models.Model):
             # accepts for the active recording (its Twilio-compat wire value).
             recording_ref = channel.recording_control_ref or 'Twilio.CURRENT'
         try:
-            self.env['connect.settings'].sudo().get_voicetel_client().calls(
-                call_sid).recordings(recording_ref).update(
-                    status='stopped')
+            self.env['connect.settings'].sudo().get_voicetel_client().calls.update_recording(
+                call_sid, recording_ref, UpdateRecordingRequest(Status='stopped'))
             channel.sudo().write({
                 'recording_state': 'off',
                 'recording_control_ref': 'manual-off',
@@ -261,7 +263,7 @@ class Channel(models.Model):
         )
 
         try:
-            client.calls(other_sid).update(twiml=str(response))
+            client.calls.update(other_sid, UpdateCallRequest(Twiml=str(response)))
         except Exception as e:
             logger.exception('Could not forward call %s to %s', other_sid, number)
             raise UserError('Could not forward the call: {}'.format(e))
@@ -312,11 +314,11 @@ class Channel(models.Model):
         dialled out), so the other party is whichever of the two we are not.
         """
         self.ensure_one()
-        ours = client.calls(self.sid).fetch()
+        ours = client.calls.get(self.sid)
         parent_sid = getattr(ours, 'parent_call_sid', None)
         if parent_sid:
             return parent_sid
-        for child in client.calls.list(parent_call_sid=self.sid, limit=20):
+        for child in client.calls.list(parent_call_sid=self.sid, page_size=20).calls:
             if child.status not in CALL_END_STATUSES:
                 return child.sid
         return None

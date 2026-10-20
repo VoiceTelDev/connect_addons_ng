@@ -5,6 +5,9 @@ import logging
 import random
 import time
 from xml.dom.minidom import parseString
+from voiceml.exceptions import NotFoundError
+from voiceml.models import CreateApplicationRequest, UpdateApplicationRequest
+
 from odoo import fields, models, api
 from odoo.exceptions import ValidationError
 from odoo.addons.connect.models.settings import debug
@@ -54,12 +57,12 @@ class VoiceML(models.Model):
 
     def create_voicetel_app(self, client):
         self.ensure_one()
-        application = client.applications.create(
-            voice_url=self.voice_url,
-            voice_fallback_url=self.voice_fallback_url,
-            friendly_name=self.name,
-            status_callback=self.voice_status_url,
-        )
+        application = client.applications.create(CreateApplicationRequest(
+            VoiceUrl=self.voice_url,
+            VoiceFallbackUrl=self.voice_fallback_url,
+            FriendlyName=self.name,
+            StatusCallback=self.voice_status_url,
+        ))
         self.write({'sid': application.sid})
         debug(self, 'Created VoiceML app {}.'.format(self.name))
         return application
@@ -101,20 +104,19 @@ class VoiceML(models.Model):
         if not self.sid:
             return self.create_voicetel_app(client)
         try:
-            application = client.applications(self.sid).update(
-                voice_url=self.voice_url,
-                voice_fallback_url=self.voice_fallback_url,
-                friendly_name=self.name,
-                status_callback=self.voice_status_url,
-            )
+            application = client.applications.update(
+                self.sid, UpdateApplicationRequest(
+                    VoiceUrl=self.voice_url,
+                    VoiceFallbackUrl=self.voice_fallback_url,
+                    FriendlyName=self.name,
+                    StatusCallback=self.voice_status_url,
+                ))
             debug(self, 'VoiceML app {} updated.'.format(self.name))
             return application
-        except Exception as e:
-            if 'not found' in str(e):
-                debug(self, 'VoiceML app {} (SID {}) not found, creating.'.format(
-                    self.name, self.sid))
-                return self.create_voicetel_app(client)
-            raise
+        except NotFoundError:
+            debug(self, 'VoiceML app {} (SID {}) not found, creating.'.format(
+                self.name, self.sid))
+            return self.create_voicetel_app(client)
 
     def unlink(self):
         if not self.env["connect.settings"].get_param("voicetel_auto_sync"):
@@ -123,12 +125,9 @@ class VoiceML(models.Model):
         for rec in self:
             if rec.sid:
                 try:
-                    client.applications(rec.sid).delete()
-                except Exception as e:
-                    if 'not found' in str(e):
-                        logger.warning('Cannot delete app %s in VoiceML, not found', rec.name)
-                    else:
-                        raise
+                    client.applications.delete(rec.sid)
+                except NotFoundError:
+                    logger.warning('Cannot delete app %s in VoiceML, not found', rec.name)
         return super().unlink()
 
     @api.model
@@ -189,7 +188,7 @@ class VoiceML(models.Model):
         return template.render(**ctx)
 
     def render_python(self, request=None, params=None):
-        import twilio
+        from . import voiceml_response
         request = dict(request or {})
         params = dict(params or {})
         try:
@@ -197,7 +196,7 @@ class VoiceML(models.Model):
                 'logger': logger,
                 'request': request,
                 'params': params,
-                'twilio': twilio,
+                'voiceml': voiceml_response,
                 'user': self.env.user,
                 'context': self.env.context,
                 'env': self.env,
@@ -220,16 +219,15 @@ class VoiceML(models.Model):
     @api.onchange('code_type')
     def _set_default_python_code(self):
         if self.code_type == 'python' and not self.python_code:
-            self.python_code = """from twilio.twiml.voice_response import VoiceResponse, Dial, Gather, Say, Hangup
+            self.python_code = """from odoo.addons.connect_voicetel.models.voiceml_response import VoiceResponse, Dial, Gather
 
-# The twilio helper library builds VoiceML: it is the same markup.
 # datetime: Python datetime library.
 # logger: logger - logger.info('test')
 # random: Python random library.
 # request: request - dict, call data from the VoiceML request.
 # params: params - dict, additional params set by the request handler.
 # time: Python time library.
-# twilio: the twilio helper library.
+# voiceml: the module's VoiceML builder (VoiceResponse, Dial, Gather, ...).
 # self: current VoiceML app recordset.
 
 response = VoiceResponse()

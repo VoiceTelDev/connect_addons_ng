@@ -4,7 +4,7 @@ from odoo import fields, models, api, release
 from odoo.exceptions import ValidationError
 if release.version_info[0] >= 19:
     from odoo.models import Constraint
-from twilio.twiml.voice_response import VoiceResponse
+from .voiceml_response import VoiceResponse
 
 logger = logging.getLogger(__name__)
 

@@ -70,15 +70,17 @@ class Number(models.Model):
             )
             return
         try:
-            number = client.incoming_phone_numbers(self.sid)
-            number.update(
-                friendly_name=self.friendly_name,
-                voice_url=self.voice_url,
-                voice_fallback_url=self.voice_fallback_url,
-                sms_url=self.message_url,
-                sms_fallback_url=self.message_fallback_url,
-                status_callback=self.voice_status_url,
-            )
+            self.env['connect.settings'].voicetel_api_form(
+                'POST', 'IncomingPhoneNumbers', self.sid,
+                form={
+                    'VoiceUrl': self.voice_url,
+                    'VoiceFallbackUrl': self.voice_fallback_url,
+                    'SmsUrl': self.message_url,
+                    'SmsFallbackUrl': self.message_fallback_url,
+                    # The SDK's update model lacks StatusCallback — the
+                    # transport seam carries it (tracked upstream).
+                    'StatusCallback': self.voice_status_url,
+                })
             debug(
                 self,
                 'Number {} updated.'.format(self.phone_number),
@@ -106,7 +108,7 @@ class Number(models.Model):
     @api.model
     def sync(self):
         client = self.env['connect.settings'].get_voicetel_client()
-        numbers = client.incoming_phone_numbers.list()
+        numbers = client.incoming_phone_numbers.iter()
         for number in numbers:
             rec = self.search([('sid', '=', number.sid)])
             if not rec:

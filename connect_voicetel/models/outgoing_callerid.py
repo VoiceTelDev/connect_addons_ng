@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
 import re
+from voiceml.exceptions import ApiError
+
 from odoo import fields, models, api, release
 if release.version_info[0] >= 19:
     from odoo.models import Constraint
@@ -71,9 +73,9 @@ class OutgoingCallerID(models.Model):
     def sync_outgoing_callerid(self, callerid_type):
         client = self.env['connect.settings'].get_voicetel_client()
         if callerid_type == 'outgoing_callerid':
-            numbers = client.outgoing_caller_ids.list()
+            numbers = client.outgoing_caller_ids.iter()
         elif callerid_type == 'number':
-            numbers = client.incoming_phone_numbers.list()
+            numbers = client.incoming_phone_numbers.iter()
         else:
             numbers = []
         for number in numbers:
@@ -102,10 +104,12 @@ class OutgoingCallerID(models.Model):
                 if number.friendly_name != existing_number.friendly_name:
                     debug(self, 'Update CallerID {} friendly name.'.format(existing_number.number))
                     if callerid_type == 'outgoing_callerid':
-                        client.outgoing_caller_ids(existing_number.sid).update(
+                        client.outgoing_caller_ids.update(
+                            existing_number.sid,
                             friendly_name=existing_number.friendly_name)
                     else:
-                        client.incoming_phone_numbers(existing_number.sid).update(
+                        client.incoming_phone_numbers.update(
+                            existing_number.sid,
                             friendly_name=existing_number.friendly_name)
         recs_to_remove = self.env[self._name].search(
             [('sid', 'not in', [k.sid for k in numbers]), ('callerid_type', '=', callerid_type)])
@@ -141,12 +145,18 @@ class OutgoingCallerID(models.Model):
             'voicetel/webhook/outgoing_callerid')
         client = self.env['connect.settings'].get_voicetel_client()
         try:
-            validation_request = client.validation_requests.create(
-                status_callback=status_url,
-                friendly_name=self.friendly_name, phone_number=self.number)
-            self.validation_code = validation_request.validation_code
+            # The SDK's create model lacks StatusCallback — the transport
+            # seam carries it (tracked upstream).
+            validation_request = self.env['connect.settings'].voicetel_api_form(
+                'POST', 'OutgoingCallerIds',
+                form={
+                    'PhoneNumber': self.number,
+                    'FriendlyName': self.friendly_name,
+                    'StatusCallback': status_url,
+                })
+            self.validation_code = validation_request.get('validation_code')
         except Exception as e:
-            if 'already verified' in str(e):
+            if isinstance(e, ApiError) and 'already verified' in str(e):
                 self.unlink()
                 self.sync()
                 return {
@@ -174,7 +184,7 @@ class OutgoingCallerID(models.Model):
             if rec.sid and rec.callerid_type == 'outgoing_callerid':
                 if self.env["connect.settings"].get_param("voicetel_auto_sync"):
                     client = self.env['connect.settings'].get_voicetel_client()
-                    client.outgoing_caller_ids(rec.sid).update(friendly_name=self.friendly_name)
+                    client.outgoing_caller_ids.update(rec.sid, friendly_name=self.friendly_name)
             elif rec.sid and rec.callerid_type == 'number':
                 number = self.env['connect.voicetel.number'].search([('phone_number', '=', rec.number)])
                 number.friendly_name = rec.friendly_name
@@ -192,7 +202,7 @@ class OutgoingCallerID(models.Model):
         client = self.env['connect.settings'].get_voicetel_client()
         for sid in sids.keys():
             try:
-                client.outgoing_caller_ids(sid).delete()
+                client.outgoing_caller_ids.delete(sid)
             except Exception:
                 logger.error('Could not delete outgoing callerid number %s', sids[sid])
         return res

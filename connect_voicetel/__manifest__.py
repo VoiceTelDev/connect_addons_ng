@@ -8,7 +8,7 @@
     'external_dependencies': {
         # The Twilio helper library is the documented client for VoiceML's
         # Twilio-compatible API; it is pointed at the VoiceML host (ADR-066).
-        'python': ['twilio'],
+        'python': ['voiceml'],
     },
     'data': [
         'security/access_rules.xml',

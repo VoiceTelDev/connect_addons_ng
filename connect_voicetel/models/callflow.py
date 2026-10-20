@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from odoo import fields, models, api
-from twilio.twiml.voice_response import Gather, VoiceResponse, Dial
+from .voiceml_response import Gather, VoiceResponse, Dial
 from odoo.addons.connect.models.settings import debug
 from .voiceml import pretty_xml
 

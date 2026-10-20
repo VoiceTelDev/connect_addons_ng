@@ -3,7 +3,7 @@ import ast
 import logging
 
 from markupsafe import Markup
-from twilio.twiml.messaging_response import MessagingResponse
+from .voiceml_response import MessagingResponse
 
 from odoo import models, fields, api, SUPERUSER_ID, release
 from odoo.exceptions import ValidationError

@@ -8,7 +8,7 @@ bogus caller.
 from unittest.mock import patch
 
 from odoo.tests import tagged
-from twilio.twiml.voice_response import VoiceResponse
+from odoo.addons.connect_voicetel.models.voiceml_response import VoiceResponse
 
 from .common import VoiceTelTestCommon
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """User TTS prompt rendering: language/voice Say attributes (ADR-037)."""
 from odoo.tests import tagged
-from twilio.twiml.voice_response import VoiceResponse
+from odoo.addons.connect_voicetel.models.voiceml_response import VoiceResponse
 
 from .common import VoiceTelTestCommon
 

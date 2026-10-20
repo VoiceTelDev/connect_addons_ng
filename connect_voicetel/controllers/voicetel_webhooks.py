@@ -2,7 +2,7 @@
 import logging
 
 from odoo.http import request, Controller, route
-from twilio.request_validator import RequestValidator
+from voiceml.webhooks import RequestValidator
 
 logger = logging.getLogger(__name__)
 

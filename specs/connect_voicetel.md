@@ -6,7 +6,7 @@
 - **Technical:** `connect_voicetel`
 - **Version:** 19.0.1.0.0
 - **Depends:** `connect`
-- **Python deps:** `twilio` (the Twilio helper library, pointed at the VoiceML host)
+- **Python deps:** `voiceml` (the VoiceTel VoiceML SDK, PyPI `voiceml`)
 - **Application:** False
 - **License:** Other proprietary
 
@@ -28,9 +28,10 @@ prefix (fields *and* methods: `on_voicetel_call_status`, `voicetel_render`,
 
 Differences from the Twilio module, all decided in ADR-066:
 
-- the REST client is `twilio.rest.Client` with a host-rewriting HTTP client
-  (`VoiceMLHttpClient`): every `https://*.twilio.com` URL goes to
-  `voicetel_api_host`;
+- the REST client is VoiceTel's own `voiceml` SDK (`voiceml.Client` with
+  `base_url`), webhooks validate with `voiceml.webhooks.RequestValidator`,
+  and VoiceML markup is built by the module's own builder
+  (`models/voiceml_response.py`) — the `twilio` package is not a dependency;
 - the browser phone is a JsSIP phone (ported from `connect_asterisk`)
   registered over WSS to the tenant SIP domain with the user's SIP
   credential — no Twilio Voice SDK, no access tokens, no `client` callflow;
@@ -63,7 +64,9 @@ Fields: `voicetel_account_sid`, `voicetel_api_key` (groups
 `voicetel_fetch_call_prices`.
 
 Methods: `_voicetel_api_host()`, `get_media_auth(media_url)` (account
-credentials for the configured host only), `get_voicetel_client()`,
+credentials for the configured host only), `get_voicetel_client()` (returns a
+`voiceml.Client`), `voicetel_api_form()` (SDK-transport seam for request
+fields the SDK has not modeled yet),
 `voicetel_sync()` (apps → domains → numbers → caller IDs),
 `voicetel_get_phone_settings()` (RPC for the phone service: `phone_enabled`,
 `user_agent.phone_sip_protocol/phone_stun_server`),
@@ -73,7 +76,8 @@ credentials for the configured host only), `get_voicetel_client()`,
 to `sip:<username>@<domain>` with inline `Twiml=`), `get_voicetel_balance()`,
 `write()` (masking).
 
-`VoiceMLHttpClient(TwilioHttpClient)`: `rewrite_url()` + `request()`.
+The SDK transport is used as-is; `voicetel_api_form()` covers the two
+unmodeled request fields (tracked upstream).
 
 ### user.py — `connect.user` (inherit)
 

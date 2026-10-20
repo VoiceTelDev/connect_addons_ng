@@ -74,18 +74,25 @@ the per-user `originate_provider`/`message_provider` keys would both read
    number/exten/callflow/user models, webhook controllers, sync logic,
    recording controls and blind transfer port with a rename.
 
-3. **The `twilio` Python helper stays the client, pointed at VoiceML.**
-   `connect.settings.get_voicetel_client()` returns a `twilio.rest.Client`
-   whose `http_client` is a `TwilioHttpClient` subclass rewriting every
-   `https://*.twilio.com` URL to the configured VoiceML host
-   (`voicetel_api_host`, default `voiceml.voicetel.com`) — the integration
-   path VoiceML documents and tests against. The TwiML builder classes
-   (`VoiceResponse`, `Dial`, `Gather`, …) and `RequestValidator` are reused
-   unchanged. Writing an own XML builder (ADR-032 decision 2) was rejected:
-   the dependency is already required by `connect_twilio`, the Twilio
-   helper is the contract VoiceML keeps parity with, and the module's
-   TwiPy-style scripting exposes the same classes. Dropped from the Twilio
-   module: `AccessToken`/`VoiceGrant`, regions/edges, API Key/Secret.
+3. **The `voiceml` Python SDK is the client, and markup is built by the
+   module's own VoiceML builder.** *Amended after review (operator decision):
+   VoiceTel ships its own SDKs and the module uses them.* The original draft
+   reused `twilio-python` with a host-rewriting HTTP client; that read as a
+   Twilio integration and its string-matched error handling was fragile.
+   `connect.settings.get_voicetel_client()` now returns a `voiceml.Client`
+   (`account_sid`/`api_key`/`base_url` native, typed `ApiError` subclasses
+   with `code`/`status_code`), webhooks validate with
+   `voiceml.webhooks.RequestValidator` (drop-in `validate()`/
+   `compute_signature()`), and VoiceML markup is rendered by
+   `models/voiceml_response.py` — a ~100-line ElementTree builder mirroring
+   the TwiML helper's API (the connect_telnyx precedent). The `twilio`
+   package is no longer a dependency. Two SDK request models lack fields the
+   server accepts — `StatusCallback` on `IncomingPhoneNumbers.update` and on
+   the ValidationRequest create — so those two calls go through
+   `connect.settings.voicetel_api_form()`, which rides the SDK transport
+   (same auth/host/retries/error mapping) with an explicit form. Tracked
+   upstream as voiceml-sdk tasks; the seam is removed once the SDK models
+   carry the fields.
 
 4. **Web phone = SIP over WSS with JsSIP, registered to the tenant's
    `*.vml.voice.tel` domain.** The `connect_asterisk` JsSIP phone is the

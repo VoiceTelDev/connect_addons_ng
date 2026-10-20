@@ -5,11 +5,13 @@ import random
 import re
 import string
 
+from voiceml.exceptions import ApiError
+
 from odoo import fields, models, api, release
 from odoo.exceptions import ValidationError
 if release.version_info[0] >= 19:
     from odoo.models import Constraint
-from twilio.twiml.voice_response import Dial, VoiceResponse
+from .voiceml_response import Dial, VoiceResponse
 
 from odoo.addons.connect.models.settings import debug
 from .settings import MAX_EXTEN_LEN, format_connect_response
@@ -192,14 +194,9 @@ class User(models.Model):
         self.ensure_one()
         try:
             client = client or self.env['connect.settings'].get_voicetel_client()
-            credential = (
-                client.sip.credential_lists(
-                    self.voicetel_domain.cred_list_sid
-                )
-                .credentials.create(
-                    username=username, password=password
-                )
-            )
+            credential = client.sip.credential_lists.credentials(
+                self.voicetel_domain.cred_list_sid
+            ).create(username=username, password=password)
             if not credential:
                 raise ValidationError('Cannot create a SIP user!')
             return credential.sid
@@ -222,12 +219,9 @@ class User(models.Model):
         self.ensure_one()
         client = client or self.env['connect.settings'].get_voicetel_client()
         try:
-            credentials = (
-                client.sip.credential_lists(
-                    self.voicetel_domain.cred_list_sid
-                )
-                .credentials.list()
-            )
+            credentials = client.sip.credential_lists.credentials(
+                self.voicetel_domain.cred_list_sid
+            ).iter()
             for credential in credentials:
                 if credential.username == username:
                     debug(
@@ -266,9 +260,9 @@ class User(models.Model):
             return
         try:
             client = self.env['connect.settings'].get_voicetel_client()
-            client.sip.credential_lists(
+            client.sip.credential_lists.credentials(
                 self.voicetel_domain.cred_list_sid
-            ).credentials(self.voicetel_sid).update(password=password)
+            ).update(self.voicetel_sid, password=password)
         except Exception as e:
             if 'not found' in str(e):
                 debug(
@@ -293,9 +287,9 @@ class User(models.Model):
             return
         try:
             client = self.env['connect.settings'].get_voicetel_client()
-            client.sip.credential_lists(
+            client.sip.credential_lists.credentials(
                 self.voicetel_domain.cred_list_sid
-            ).credentials(self.voicetel_sid).delete()
+            ).delete(self.voicetel_sid)
             debug(
                 self,
                 'Deleted SIP account {}.'.format(self.voicetel_username),

@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from odoo import fields, models, api
 
-from twilio.twiml.voice_response import VoiceResponse, Dial
+from .voiceml_response import VoiceResponse, Dial
 
 from odoo.addons.connect.models.settings import debug
 from odoo.addons.connect.models.call import CALL_END_STATUSES
@@ -131,7 +131,7 @@ class Call(models.Model):
         """Fetch the call price from the VoiceML REST API."""
         try:
             client = self.env['connect.settings'].get_voicetel_client()
-            remote_call = client.calls(call_sid).fetch()
+            remote_call = client.calls.get(call_sid)
             if remote_call.price is not None and remote_call.price != '':
                 try:
                     price_value = round(abs(float(remote_call.price)), 3)
@@ -221,11 +221,11 @@ class Call(models.Model):
         dial = Dial()
         dial.sip('sip:{}'.format(user.voicetel_uri))
         response.append(dial)
-        client.calls(user_channel.sid).update(twiml=str(response))
+        client.calls.update(user_channel.sid, UpdateCallRequest(Twiml=str(response)))
 
         response = VoiceResponse()
         response.say('Transfer')
         dial = Dial()
         dial.conference(room)
         response.append(dial)
-        client.calls(other_channel.sid).update(twiml=str(response))
+        client.calls.update(other_channel.sid, UpdateCallRequest(Twiml=str(response)))

@@ -2,16 +2,15 @@
 
 ## 1. Python dependency
 
-The module uses the Twilio helper library as its REST client and VoiceML
-markup builder:
+The module uses VoiceTel's own VoiceML SDK as its REST client and webhook
+validator, and builds VoiceML markup with its own builder:
 
 ```bash
-pip install twilio
+pip install voiceml
 ```
 
-The library is pointed at the VoiceML host by the module; it never contacts
-Twilio. If `connect_twilio` is already installed the dependency is already
-present.
+The SDK is pointed at the VoiceML host by the module; nothing contacts
+Twilio.
 
 ## 2. Install the module
 

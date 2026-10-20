@@ -5,8 +5,9 @@ from urllib.parse import urljoin, urlparse
 
 from odoo import fields, models, api, release
 from odoo.exceptions import ValidationError
-from twilio.http.http_client import TwilioHttpClient
-from twilio.rest import Client
+from voiceml import Client
+from voiceml.exceptions import ApiError, AuthenticationError
+from voiceml.models import CreateCallRequest
 
 from odoo.addons.connect.models.license import ODUIST_MODULES
 from odoo.addons.connect.models.settings import debug
@@ -15,8 +16,6 @@ ODUIST_MODULES.append('connect_voicetel')
 
 
 logger = logging.getLogger(__name__)
-
-VOICETEL_LOG_LEVEL = logging.WARNING
 
 MAX_EXTEN_LEN = 4
 
@@ -35,9 +34,6 @@ DEFAULT_VOICETEL_STUN_SERVER = 'stun:stun.l.google.com:19302'
 # wss://<domain_name>:8443 (VoiceML Phone uses the same address).
 VOICETEL_WSS_PORT = 8443
 
-RE_TWILIO_HOST = re.compile(r'^https://[a-z0-9.-]+\.twilio\.com', re.IGNORECASE)
-
-
 def format_connect_response(text):
     if not isinstance(text, str):
         text = str(text)
@@ -54,27 +50,6 @@ def strip_number(number):
         return number
     pattern = r"[\s\(\)\-\+]"
     return re.sub(pattern, "", number).lstrip("0")
-
-
-class VoiceMLHttpClient(TwilioHttpClient):
-    """Twilio helper HTTP client pointed at a VoiceML host.
-
-    VoiceML implements the Twilio REST surface on a host of its own and
-    documents this override as the integration path for the official helper
-    libraries: every request the helper builds for ``https://*.twilio.com``
-    is sent to the VoiceML host instead, with the path, parameters, Basic
-    auth and response shapes untouched.
-    """
-
-    def __init__(self, host, **kwargs):
-        super().__init__(**kwargs)
-        self.voiceml_base = 'https://{}'.format(host.strip().rstrip('/'))
-
-    def rewrite_url(self, url):
-        return RE_TWILIO_HOST.sub(self.voiceml_base, url or '', count=1)
-
-    def request(self, method, url, *args, **kwargs):
-        return super().request(method, self.rewrite_url(url), *args, **kwargs)
 
 
 class Settings(models.Model):
@@ -160,20 +135,44 @@ class Settings(models.Model):
 
     @api.model
     def get_voicetel_client(self):
+        """VoiceML SDK client for the configured account (ADR-066 as amended).
+
+        The ``voiceml`` package is VoiceTel's own SDK: the same
+        Twilio-compatible REST surface with native ``base_url`` host config
+        and typed errors (``voiceml.exceptions.ApiError`` subclasses carrying
+        ``code``), so no string matching on exception text.
+        """
         try:
             # connect.settings is admin-only; credentials are read with sudo()
             # below, so no caller-level model access check is needed here.
             account_sid = self.sudo().get_param("voicetel_account_sid")
             api_key = self.sudo().get_param("voicetel_api_key")
-            http_client = VoiceMLHttpClient(self._voicetel_api_host())
-            client = Client(account_sid, api_key, http_client=http_client)
-            client.http_client.logger.setLevel(VOICETEL_LOG_LEVEL)
-            return client
+            return Client(
+                account_sid=account_sid,
+                api_key=api_key,
+                base_url='https://{}'.format(self._voicetel_api_host()),
+            )
         except Exception as e:
-            if "Credentials are required" in str(e):
+            if "required" in str(e):
                 raise ValidationError("Set the VoiceTel Account SID and API key first!")
             else:
                 raise
+
+    @api.model
+    def voicetel_api_form(self, method, *parts, form=None):
+        """Call a Twilio-compatible endpoint the SDK has not modeled yet.
+
+        The seam for SDK gaps: the call rides the SDK's transport (same
+        account auth, host, retries and error mapping); only the path and the
+        form are supplied here. Used for ``StatusCallback`` on
+        IncomingPhoneNumbers update and ValidationRequest create, which the
+        SDK request models lack (tracked upstream).
+        """
+        client = self.get_voicetel_client()
+        path = '/2010-04-01/Accounts/{}/{}'.format(
+            client.account_sid, '/'.join(str(p) for p in parts))
+        return client.incoming_phone_numbers._t.request(
+            method, path, data=form or {})
 
     def voicetel_sync(self):
         if not (
@@ -190,14 +189,10 @@ class Settings(models.Model):
             self.env["connect.voicetel.number"].sync()
             self.env["connect.voicetel.outgoing_callerid"].sync()
             self.connect_notify("VoiceTel account synced successfully", title="Sync Complete")
-        except Exception as e:
-            message = str(e)
-            if ('Authentication Error' in message or '20003' in message
-                    or getattr(e, 'code', None) == 20003):
-                raise ValidationError(
-                    'Error authenticating requests to the VoiceML API! Check your API key!'
-                )
-            raise
+        except AuthenticationError:
+            raise ValidationError(
+                'Error authenticating requests to the VoiceML API! Check your API key!'
+            )
 
     @api.model
     def voicetel_get_phone_settings(self):
@@ -304,17 +299,17 @@ class Settings(models.Model):
         record_status_url = self.voicetel_webhook_url(
             "voicetel/webhook/recordingstatus")
         debug(self, 'Originate destination VoiceML: {}'.format(voiceml))
-        channel = client.calls.create(
-            twiml=voiceml,
-            to=to,
-            from_=callerId,
-            status_callback=status_url,
-            record=record,
-            recording_channels="dual",
-            recording_status_callback=record_status_url,
-            recording_status_callback_event=["completed"],
-            status_callback_event=["initiated", "answered", "completed"],
-        )
+        channel = client.calls.create(CreateCallRequest(
+            To=to,
+            From=callerId,
+            Twiml=voiceml,
+            StatusCallback=status_url,
+            Record=record,
+            RecordingChannels="dual",
+            RecordingStatusCallback=record_status_url,
+            RecordingStatusCallbackEvent=["completed"],
+            StatusCallbackEvent=["initiated", "answered", "completed"],
+        ))
         self.env["connect.channel"].sudo().create(
             {
                 "sid": channel.sid,
@@ -333,14 +328,14 @@ class Settings(models.Model):
         try:
             client = self.get_voicetel_client()
             try:
-                balance_item = client.api.v2010.account.balance.fetch()
+                balance_item = client.balance.fetch()
                 currency = getattr(balance_item, 'currency', 'USD')
                 balance_value = getattr(balance_item, 'balance', '0.00')
                 balance = "${} {}".format(balance_value, currency)
             except Exception as balance_error:
                 if (
-                    '20404' in str(balance_error)
-                    or 'not found' in str(balance_error).lower()
+                    isinstance(balance_error, ApiError)
+                    and balance_error.status_code == 404
                 ):
                     balance = "Balance API not available for this account"
                     self.set_param('voicetel_balance', balance)

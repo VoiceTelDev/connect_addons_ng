@@ -7,7 +7,7 @@ validating with those counts every query parameter twice: the
 ``?done_callflows=`` marker on the ``<Dial>`` action URL made every rejected
 call answer "Invalid VoiceTel request!".
 """
-from twilio.request_validator import RequestValidator
+from voiceml.webhooks import RequestValidator
 
 from odoo.tests import HttpCase, tagged, new_test_user
 
