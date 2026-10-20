@@ -34,7 +34,7 @@ handles their messaging (`message_provider`).
 |--------|:----:|---------|
 | **`connect`** | 4.2.0 | Technology-agnostic **core** and Odoo app. Shared call/message ledger (`connect.call`, `connect.channel`, `connect.recording`, `connect.message`), PBX people (`connect.user`), common settings, OpenAI transcription/summarization, working-schedule engine, partner integration. Holds **no** provider-specific code or PBX configuration. |
 | **`connect_twilio`** | 2.2.0 | **Twilio** integration. Owns its numbers/extensions/call flows/caller IDs; Twilio Voice JS SDK web phone, SIP domains, TwiML apps, SMS & WhatsApp. |
-| **`connect_voicetel`** | 1.0.0 | **VoiceTel VoiceML** integration (Twilio-compatible, self-hosted). Owns numbers/extensions/call flows/caller IDs; JsSIP browser phone over SIP/WSS on tenant `*.vml.voice.tel` domains, VoiceML apps, SMS & MMS, recordings pulled into Odoo. |
+| **`connect_voicetel`** | 1.0.0 | **VoiceTel VoiceML** integration (Twilio-compatible, self-hosted). Owns numbers/extensions/call flows/caller IDs; JsSIP browser phone over SIP/WSS on tenant `*.vml.voice.tel` domains, VoiceML apps, SMS (inbound MMS media shows on the message), recordings pulled into Odoo. |
 | **`connect_freeswitch`** | 2.1.1 | **FreeSWITCH** integration (self-hosted). Owns numbers/extensions/call flows/endpoints/caller IDs; Verto WebRTC client, XML dialplan generation, SIP gateways/routes, FIFO, parking, SIP firewall. |
 | **`connect_freeswitch_website`** | 1.0.0 | Website snippets for FreeSWITCH number working schedules (Phone Status, Phone Opening Hours) + public `/freeswitch/schedule/*` endpoints. Only module allowed to depend on `website`. |
 | **`connect_asterisk`** | 2.1.0 | **Asterisk** integration for existing PBXs (FreePBX / Issabel / plain). Owns endpoints and DID mappings; JsSIP web phone over WSS, click-to-call and AMI event pipeline via the `oduist/asterisk-agent` sidecar, config-snippet generation. |
@@ -60,7 +60,7 @@ Provider modules (`connect_twilio`, `connect_voicetel`, `connect_freeswitch`,
 | Provider | Voice | Browser web phone | Messaging | IVR / call flows | AI voice agents | Deployment |
 |----------|:-----:|:-----------------:|-----------|:----------------:|:---------------:|------------|
 | Twilio | ✅ TwiML | ✅ Voice JS SDK | SMS, WhatsApp | ✅ | — | Cloud |
-| VoiceTel (VoiceML) | ✅ Twilio-compatible | ✅ JsSIP (SIP/WSS) | SMS, MMS | ✅ | — | Self-hosted / VoiceTel cloud |
+| VoiceTel (VoiceML) | ✅ Twilio-compatible | ✅ JsSIP (SIP/WSS) | SMS (MMS inbound) | ✅ | — | Self-hosted / VoiceTel cloud |
 | FreeSWITCH | ✅ XML dialplan | ✅ Verto WebRTC | — | ✅ | via Dograh / Pipecat | Self-hosted |
 | Asterisk | ✅ AMI sidecar | ✅ JsSIP | — | (uses existing PBX) | — | Existing PBX |
 | Telnyx | ✅ TeXML | ✅ @telnyx/webrtc | SMS, WhatsApp, RCS | ✅ | — | Cloud |
