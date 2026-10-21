@@ -158,22 +158,6 @@ class Settings(models.Model):
             else:
                 raise
 
-    @api.model
-    def voicetel_api_form(self, method, *parts, form=None):
-        """Call a Twilio-compatible endpoint the SDK has not modeled yet.
-
-        The seam for SDK gaps: the call rides the SDK's transport (same
-        account auth, host, retries and error mapping); only the path and the
-        form are supplied here. Used for ``StatusCallback`` on
-        IncomingPhoneNumbers update and ValidationRequest create, which the
-        SDK request models lack (tracked upstream).
-        """
-        client = self.get_voicetel_client()
-        path = '/2010-04-01/Accounts/{}/{}'.format(
-            client.account_sid, '/'.join(str(p) for p in parts))
-        return client.incoming_phone_numbers._t.request(
-            method, path, data=form or {})
-
     def voicetel_sync(self):
         if not (
             self.sudo().get_param("voicetel_account_sid")

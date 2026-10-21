@@ -65,8 +65,7 @@ Fields: `voicetel_account_sid`, `voicetel_api_key` (groups
 
 Methods: `_voicetel_api_host()`, `get_media_auth(media_url)` (account
 credentials for the configured host only), `get_voicetel_client()` (returns a
-`voiceml.Client`), `voicetel_api_form()` (SDK-transport seam for request
-fields the SDK has not modeled yet),
+`voiceml.Client`),
 `voicetel_sync()` (apps → domains → numbers → caller IDs),
 `voicetel_get_phone_settings()` (RPC for the phone service: `phone_enabled`,
 `user_agent.phone_sip_protocol/phone_stun_server`),
@@ -76,8 +75,8 @@ fields the SDK has not modeled yet),
 to `sip:<username>@<domain>` with inline `Twiml=`), `get_voicetel_balance()`,
 `write()` (masking).
 
-The SDK transport is used as-is; `voicetel_api_form()` covers the two
-unmodeled request fields (tracked upstream).
+The SDK transport is used as-is (requires `voiceml >= 0.9.4` for
+`status_callback` on number update and caller-ID validation).
 
 ### user.py — `connect.user` (inherit)
 

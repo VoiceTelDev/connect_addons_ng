@@ -107,10 +107,9 @@ class OutgoingCallerID(models.Model):
                         client.outgoing_caller_ids.update(
                             existing_number.sid,
                             friendly_name=existing_number.friendly_name)
-                    else:
-                        client.incoming_phone_numbers.update(
-                            existing_number.sid,
-                            friendly_name=existing_number.friendly_name)
+                    # An owned number's friendly_name is derived server-side
+                    # from the number itself and cannot be set (SDK 0.9.3+).
+
         recs_to_remove = self.env[self._name].search(
             [('sid', 'not in', [k.sid for k in numbers]), ('callerid_type', '=', callerid_type)])
         debug(self, 'Removing {} CallerIds: {}'.format(callerid_type, [k.number for k in recs_to_remove]))
@@ -145,16 +144,12 @@ class OutgoingCallerID(models.Model):
             'voicetel/webhook/outgoing_callerid')
         client = self.env['connect.settings'].get_voicetel_client()
         try:
-            # The SDK's create model lacks StatusCallback — the transport
-            # seam carries it (tracked upstream).
-            validation_request = self.env['connect.settings'].voicetel_api_form(
-                'POST', 'OutgoingCallerIds',
-                form={
-                    'PhoneNumber': self.number,
-                    'FriendlyName': self.friendly_name,
-                    'StatusCallback': status_url,
-                })
-            self.validation_code = validation_request.get('validation_code')
+            validation_request = client.outgoing_caller_ids.create(
+                phone_number=self.number,
+                friendly_name=self.friendly_name,
+                status_callback=status_url,
+            )
+            self.validation_code = validation_request.validation_code
         except Exception as e:
             if isinstance(e, ApiError) and 'already verified' in str(e):
                 self.unlink()
